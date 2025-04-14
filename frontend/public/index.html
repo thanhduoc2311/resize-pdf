@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Resize File PDF</title>
+	<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro&display=swap" rel="stylesheet">
+	<link rel="stylesheet" type="text/css" href="css/style2.css">	
+	<link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container">
+	<h1 class="title">Resize File PDF</h1>	
+	<form action="/upload" method="POST" enctype="multipart/form-data">
+		<div class="upload-container" onclick="document.getElementById('file').click();">
+			<div class="icon-upload">
+				<img src="img/upanh.png" />
+			</div>
+			<div class="title-upload">Tải tệp PDF lên</div>	
+			<div class="title-upload" id="fileNameDisplay"></div>					
+		</div>
+		<div class="button-upload">
+			<input type="file" id="file" name="logo" class="uploadfile-container-hidden" />
+	     	<input type="submit" class="btn btn-primary mt-8" method="post" id="upload" value="Nén và Tải về">
+	     </div>		
+	</form>
+</div>
+</body>
+<script type="text/javascript" src="jquery.js"></script>
+</html>

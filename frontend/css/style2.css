@@ -1,0 +1,49 @@
+body {
+    font-family: 'Be Vietnam Pro', sans-serif;
+    }
+.container{
+	max-width: 1250px;
+	margin-left: auto;
+	margin-right: auto;
+}
+.title{
+	font-weight: 600;
+	text-align: center;
+	font-size: 25px;
+}
+.upload-container{
+	border: 1px dashed #aaa;
+	text-align: :center;
+	cursor: pointer;
+	border-radius: 6px;
+	padding: 25px;
+}
+.icon-upload{
+	text-align: center;
+}
+.icon-upload img{
+	max-height: 100px;
+	max-width: 100px;
+	width: 100%;
+	height: 100%;
+}
+.title-upload{
+	color: #414141;
+	font-size: 20px;
+	margin-top: 14px;
+	text-align: center;
+	font-weight: 600;
+}
+.button-upload{
+	text-align: center;
+	margin-top: 20px;
+}
+.button-upload button{
+	background-color: #0969da;
+	border-radius: 6px;
+	padding: 10px 35px;
+	color: #fff;	
+}
+.uploadfile-container-hidden{
+	opacity: 0;
+}
