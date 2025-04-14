@@ -3,5 +3,8 @@
     "@pdftron/pdfnet-node": "^11.3.0",
     "express-fileupload": "^1.5.1",
     "pdf-lib": "^1.17.1"
-  }
+  },
+  "scripts": {
+  "start": "node index.js"
+}
 }

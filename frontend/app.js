@@ -1,52 +1,41 @@
-var fs = require('fs');
-var express = require('express');
-const upload = require('express-fileupload')
-var multer  = require('multer')
-var router = express.Router();
+const fs = require('fs');
+const express = require('express');
+const upload = require('express-fileupload');
+const multer = require('multer');
+const bodyParser = require('body-parser');
+const router = express.Router();
 const fileWorker = require('../backend/compress.js');
-var app = express();
-var bodyParser = require('body-parser')
 
-bodyParser = require('body-parser');
-app.use('/',router);
+const app = express();
 
-
-app.use(bodyParser.urlencoded({extended: true}));
+// Middleware
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-
-
-var jsonParser = bodyParser.json();
+app.use(upload());
 app.use(express.static("public"));
-app.use(upload())
-app.use('/',router);
+app.use('/', router);
 
-
-router.use((req,res,next) => {
+// Router middleware (chưa làm gì cụ thể)
+router.use((req, res, next) => {
     next();
 });
 
+// Routes
 app.post('/upload', fileWorker.upload);
+app.get('/getFileList', fileWorker.filelist);
+app.get('/download', fileWorker.download);
+app.post('/delete', fileWorker.delete);
 
-app.get('/getFileList',fileWorker.filelist);
-
-app.get('/download',fileWorker.download)
-
-app.post('/delete', jsonParser, fileWorker.delete)
-
-app.get('/filelist',function(req, res){
-    res.sendFile(__dirname + '/public/index.html');
-})
-
-app.get('/', (req, res)=>{
+app.get('/filelist', (req, res) => {
     res.sendFile(__dirname + '/public/index.html');
 });
 
-//send email!!!---------------------------------------
-app.use(bodyParser.urlencoded({extended: true}));
-app.use(bodyParser.json());
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/public/index.html');
+});
 
-
-let port = 3100;
+// Start server
+const port = process.env.PORT || 3100;
 app.listen(port, err => {
     console.log(`Listening on port: ${port}`);
-  });
+});
