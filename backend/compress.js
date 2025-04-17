@@ -80,15 +80,15 @@ exports.upload = (req, res)=>{
          }else{
              if(file.mimetype === 'application/pdf'){    
                  runOptimizer(filename.substring(0,filename.indexOf(".")),5, 150);
-                 res.send('<script>alert("File is uploaded, filesize: ' + getFileSize(file.size)+'. It is compressing now!"); setTimeout(function(){location.reload();},2000) </script>')                 
+                 res.send('<script>alert("File is uploaded, filesize: ' + getFileSize(file.size)+'. It is compressing now!"); setTimeout(function(){ window.location.href = "/"; }, 2000); </script>')                 
              }else{
               fs.unlinkSync('../upload/' + filename);   
-              res.send('<script>alert("The type of file is not valid, please send a PDF file!!"); setTimeout(function(){location.reload();},500) </script>')
+              res.send('<script>alert("The type of file is not valid, please send a PDF file!!"); setTimeout(function(){ window.location.href = "/"; }, 500); </script>')
              }
          }
      })
   }else{
-      res.send('<script>alert("No file uploaded, please choose a file !"); setTimeout(function(){location.reload();},500) </script>')
+      res.send('<script>alert("No file uploaded, please choose a file !"); setTimeout(function(){ window.location.href = "/"; }, 500); </script>')
   }
 }
 
