@@ -10,55 +10,46 @@ var path = require("path")
 async function runOptimizer(filename, quality, DPI){
   const input_path = '../upload/';
   const output_path = "../Output/";
-  const input_filename = filename;
-  console.log(input_filename +'Start compress!!')
+  console.log(filename +' Start compress!!')
+  
+  const nameWithoutExt = path.basename(filename, path.extname(filename));
+
   await PDFNet.initialize("demo:1743846449810:613f578c03000000004e7018a291d4b97e912990fdbf2a2fb97d2918b0");
+  
   let Quality = parseInt(quality);
-  let D= parseInt(DPI);
+  let D = parseInt(DPI);
+
   if(Quality <= 0){
     Quality = 1;
   }
-  if(Quality>10){
+  if(Quality > 10){
     Quality = 10;
   }
   if(D <= 0){
     D = 50;
   }
-  //--------------------------------------------------------------------------------
-  // Simple optimization of a pdf with default settings. 
+
   try {
-    const doc = await PDFNet.PDFDoc.createFromFilePath(input_path + input_filename + ".pdf");
+    const doc = await PDFNet.PDFDoc.createFromFilePath(input_path + filename + ".pdf");
     await doc.initSecurityHandler();
     const image_settings = new PDFNet.Optimizer.ImageSettings();
 
-    // low quality jpeg compression
     image_settings.setCompressionMode(PDFNet.Optimizer.ImageSettings.CompressionMode.e_jpeg);
-    //from 1 to 10 where 10 is lossless (if possible)
-
     image_settings.setQuality(Quality);
-
-    // Set the output dpi to be standard screen resolution
     image_settings.setImageDPI(500, D);
-
     image_settings.forceRecompression(true);
-    // this option will recompress images not compressed with
-    // jpeg compression and use the result if the new image
-    // is smaller.
-    // image_settings.forceRecompression(true);
-    
-    const opt_settings = new PDFNet.Optimizer.OptimizerSettings();
 
+    const opt_settings = new PDFNet.Optimizer.OptimizerSettings();
     opt_settings.setColorImageSettings(image_settings);
     opt_settings.setGrayscaleImageSettings(image_settings);
 
-    // use the same settings for both color and grayscale images
     await PDFNet.Optimizer.optimize(doc, opt_settings);
-    
-    doc.save(output_path + input_filename + "_Q"+ quality +"_D"+ DPI +".pdf", PDFNet.SDFDoc.SaveOptions.e_linearized);
-    fs.unlinkSync(input_path + input_filename + ".pdf");
-    console.log(input_filename + "compressed!")
-  }
-  catch (err) {
+
+    doc.save(output_path + nameWithoutExt + "_resize.pdf", PDFNet.SDFDoc.SaveOptions.e_linearized);
+
+    setTimeout(() => { fs.unlinkSync(input_path + filename + ".pdf"); }, 2000);
+    console.log(filename + " compressed!");
+  } catch (err) {
     console.log(err);
   }
 }
@@ -67,28 +58,58 @@ async function runOptimizer(filename, quality, DPI){
 exports.Compress = runOptimizer;
 
 // upload function
-exports.upload = (req, res)=>{
-  console.log("body:"+ JSON.stringify(req.body))
+exports.upload = async (req, res) => {
+  console.log("body:"+ JSON.stringify(req.body));
   if(req.files){
-     console.log(req.files)
-     var file = req.files.logo
-     var filename = file.name
-     console.log("1111111"+typeof(filename))
-     file.mv('../upload/' + filename, function(err){
-         if(err){
-             res.send(err)
-         }else{
-             if(file.mimetype === 'application/pdf'){    
-                 runOptimizer(filename.substring(0,filename.indexOf(".")),5, 150);
-                 res.send('<script>alert("File is uploaded, filesize: ' + getFileSize(file.size)+'. It is compressing now!"); setTimeout(function(){ window.location.href = "/"; }, 2000); </script>')                 
-             }else{
-              fs.unlinkSync('../upload/' + filename);   
-              res.send('<script>alert("The type of file is not valid, please send a PDF file!!"); setTimeout(function(){ window.location.href = "/"; }, 500); </script>')
-             }
-         }
-     })
-  }else{
-      res.send('<script>alert("No file uploaded, please choose a file !"); setTimeout(function(){ window.location.href = "/"; }, 500); </script>')
+    var file = req.files.logo;
+    var filename = file.name;
+    console.log("1111111" + typeof(filename));
+    
+    // Di chuyển file lên server
+    file.mv('../upload/' + filename, async function(err){
+      if(err){
+        return res.send(err);
+      }
+
+      if(file.mimetype === 'application/pdf'){    
+        const nameWithoutExt = path.basename(filename, path.extname(filename));
+        const quality = 5;
+        const dpi = 150;
+         const fileSize = getFileSize(file.size);
+        await runOptimizer(nameWithoutExt, quality, dpi);
+        
+        // Sau khi nén xong mới chuyển hướng tải file
+        res.send(`<html>
+                <body>
+                  <script>
+                    alert("File is uploaded and compressed successfully!Filesize: ${fileSize}");
+                    setTimeout(function(){
+                      var a = document.createElement("a");
+                      a.href = "/download?path=Output/${nameWithoutExt}_resize.pdf";
+                      a.download = "${nameWithoutExt}_resize.pdf";
+                      document.body.appendChild(a);
+                      a.click();
+                      setTimeout(function() {
+                        window.location.href = "/";
+                      }, 2000); 
+                    }, 1000);
+                  </script>
+                </body>
+              </html>`);
+
+      } else {
+        fs.unlinkSync('../upload/' + filename);   
+        res.send(`<script>
+          alert("The type of file is not valid, please send a PDF file!!");
+          setTimeout(function(){window.location.href = "/";}, 1000);
+        </script>`);
+      }
+    });
+  } else {
+    res.send(`<script>
+      alert("No file uploaded, please choose a file !");
+      setTimeout(function(){window.location.href = "/";}, 1000);
+    </script>`);
   }
 }
 
@@ -117,13 +138,21 @@ exports.delete = (req, res, next) => {
 
 exports.download = (req, res) => {
   var filePath = req.query.path;
-    // var filePath = filePath.substring(3)
-    console.log('download file: '+filePath)
-    filePath = path.join(__dirname, '../'+filePath);
-    console.log('download file: '+filePath)
-    res.attachment(filePath)
-    res.sendFile(filePath)
-}
+  console.log('download file: '+filePath);
+
+  const filename = path.basename(filePath);
+  const nameWithoutExt = path.basename(filename, path.extname(filename));
+
+  filePath = path.join(__dirname, '../' + filePath);
+  console.log('download file: ' + filePath);
+  if (fs.existsSync(filePath)) {
+    res.attachment(filePath);
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send('File not found');
+  }
+};
+
 
 exports.filelist = (req, res) => {
     var filelist = getFileList('../Output')
