@@ -15,7 +15,6 @@ app.use(upload());
 app.use(express.static("public"));
 app.use('/', router);
 
-// Router middleware (chưa làm gì cụ thể)
 router.use((req, res, next) => {
     next();
 });

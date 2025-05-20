@@ -7,33 +7,27 @@ const express = require("express");
 var path = require("path")
 
 //Compress function
-async function runOptimizer(filename, quality, DPI){
+async function runOptimizer(filename, quality, DPI) {
   const input_path = '../upload/';
-  const output_path = "../Output/";
-  console.log(filename +' Start compress!!')
-  
+  const output_path = '../Output/';
   const nameWithoutExt = path.basename(filename, path.extname(filename));
+  const inputFile = input_path + filename + ".pdf";
+  const outputFile = output_path + nameWithoutExt + "_resize.pdf";
 
-  await PDFNet.initialize("demo:1743846449810:613f578c03000000004e7018a291d4b97e912990fdbf2a2fb97d2918b0");
-  
-  let Quality = parseInt(quality);
-  let D = parseInt(DPI);
+  console.log(filename + ' Start compress!!');
 
-  if(Quality <= 0){
-    Quality = 1;
-  }
-  if(Quality > 10){
-    Quality = 10;
-  }
-  if(D <= 0){
-    D = 50;
-  }
-
-  try {
-    const doc = await PDFNet.PDFDoc.createFromFilePath(input_path + filename + ".pdf");
+  await PDFNet.runWithCleanup(async () => {
+    const doc = await PDFNet.PDFDoc.createFromFilePath(inputFile);
     await doc.initSecurityHandler();
-    const image_settings = new PDFNet.Optimizer.ImageSettings();
 
+    let Quality = parseInt(quality);
+    let D = parseInt(DPI);
+
+    if (Quality <= 0) Quality = 1;
+    if (Quality > 10) Quality = 10;
+    if (D <= 0) D = 50;
+
+    const image_settings = new PDFNet.Optimizer.ImageSettings();
     image_settings.setCompressionMode(PDFNet.Optimizer.ImageSettings.CompressionMode.e_jpeg);
     image_settings.setQuality(Quality);
     image_settings.setImageDPI(500, D);
@@ -45,17 +39,38 @@ async function runOptimizer(filename, quality, DPI){
 
     await PDFNet.Optimizer.optimize(doc, opt_settings);
 
-    doc.save(output_path + nameWithoutExt + "_resize.pdf", PDFNet.SDFDoc.SaveOptions.e_linearized);
+    await doc.save(outputFile, PDFNet.SDFDoc.SaveOptions.e_linearized);
+  }, 'demo:1743846449810:613f578c03000000004e7018a291d4b97e912990fdbf2a2fb97d2918b0');
 
-    setTimeout(() => { fs.unlinkSync(input_path + filename + ".pdf"); }, 2000);
-    console.log(filename + " compressed!");
-  } catch (err) {
-    console.log(err);
-  }
+  setTimeout(() => {
+    deleteWithRetry(inputFile);
+  }, 1000);
+
+  console.log(filename + ' compressed!');
 }
-// PDFNet.runWithCleanup(runOptimizer, 0).then(function(){PDFNet.shutdown();});
 
 exports.Compress = runOptimizer;
+
+function deleteWithRetry(filePath, retries = 3, delay = 1000) {
+  let attempt = 0;
+
+  const tryDelete = () => {
+    try {
+      fs.unlinkSync(filePath);
+      console.log('✅ Đã xóa file:', filePath);
+    } catch (err) {
+      if (err.code === 'EBUSY' && attempt < retries) {
+        attempt++;
+        console.warn(`⚠️ File đang bị giữ, thử lại lần ${attempt}...`);
+        setTimeout(tryDelete, delay);
+      } else {
+        console.error('❌ Không thể xóa file:', err.message);
+      }
+    }
+  };
+
+  tryDelete();
+}
 
 // upload function
 exports.upload = async (req, res) => {
@@ -77,39 +92,25 @@ exports.upload = async (req, res) => {
         const dpi = 150;
          const fileSize = getFileSize(file.size);
         await runOptimizer(nameWithoutExt, quality, dpi);
-        
-        // Sau khi nén xong mới chuyển hướng tải file
-        res.send(`<html>
-                <body>
-                  <script>
-                    alert("File is uploaded and compressed successfully!Filesize: ${fileSize}");
-                    setTimeout(function(){
-                      var a = document.createElement("a");
-                      a.href = "/download?path=Output/${nameWithoutExt}_resize.pdf";
-                      a.download = "${nameWithoutExt}_resize.pdf";
-                      document.body.appendChild(a);
-                      a.click();
-                      setTimeout(function() {
-                        window.location.href = "/";
-                      }, 2000); 
-                    }, 1000);
-                  </script>
-                </body>
-              </html>`);
+
+        res.json({
+          success: true,
+          message: "File is uploaded and compressed successfully! Filesize: ${fileSize}"
+        });
 
       } else {
         fs.unlinkSync('../upload/' + filename);   
-        res.send(`<script>
-          alert("The type of file is not valid, please send a PDF file!!");
-          setTimeout(function(){window.location.href = "/";}, 1000);
-        </script>`);
+        res.status(400).json({
+          success: false,
+          message: "The type of file is not valid, please send a PDF file!"
+        });
       }
     });
   } else {
-    res.send(`<script>
-      alert("No file uploaded, please choose a file !");
-      setTimeout(function(){window.location.href = "/";}, 1000);
-    </script>`);
+    res.status(400).json({
+      success: false,
+      message: "No file uploaded!"
+    });
   }
 }
 
@@ -124,17 +125,21 @@ function getFileSize(size){
 }
 
 //deletefunction
-exports.delete = (req, res, next) => {
-  var filePath = req.body.filePath;
-  console.log('delete file：'+filePath)
+exports.delete = (req, res) => {
+  const filename = req.body.filename;
+  const filePath = path.join(__dirname, '../Output', filename); 
+
+  console.log('Đang xóa file:', filePath);
+
   try {
-      fs.unlinkSync(filePath)
-      // 重定向到列表页
-      res.send('success')
+    fs.unlinkSync(filePath); 
+    res.send('success');
   } catch (error) {
-      res.send('failed!!')
+    console.error('Lỗi khi xóa:', error.message);
+    res.send('failed');
   }
-} 
+};
+
 
 exports.download = (req, res) => {
   var filePath = req.query.path;
@@ -162,6 +167,7 @@ exports.filelist = (req, res) => {
 function getFileList(path){
   var filelist = [];
   readFile(path, filelist);
+  filelist.sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
   return filelist;
 }
 
@@ -175,11 +181,13 @@ function readFile(path, filelist){
       if(state.isDirectory()){
           readFile(path+'/'+file, filelist)
       }else{
-          var obj = new Object;
-          obj.size = state.size;
-          obj.name = file;
-          obj.path = path+'/'+file;
-          filelist.push(obj);
+          var obj = {
+            size: state.size,
+            name: file,
+            path: path + '/' + file,
+            mtime: state.mtime 
+        };
+        filelist.push(obj);          
       }
   }
 }
